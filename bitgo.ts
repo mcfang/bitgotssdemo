@@ -26,12 +26,26 @@ async function bitgoCreate() {
     await bitgoSign(aKeyCombine, bKeyCombine, 'aa')
 
 
-    const dKeyCombine = MPC.keyCombine(C.pShare, [A.nShares[3], B.nShares[3]]);
-    console.log(`commonPublicKey-d--- ${dKeyCombine.xShare.y}`)
+    // const dKeyCombine = MPC.keyCombine(C.pShare, [A.nShares[3], B.nShares[3]]);
+    // console.log(`commonPublicKey-d--- ${dKeyCombine.xShare.y}`)
 }
 
 async function bitgoResharing(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined) {
+    const A = await MPC.keyShare(1, 2, 3);
+    const B = await MPC.keyShare(2, 2, 3);
+    const C = await MPC.keyShare(3, 2, 3);
 
+    console.log(JSON.stringify(A, undefined, 1));
+    console.log(JSON.stringify(B, undefined, 2));
+    console.log(JSON.stringify(C, undefined, 3));
+
+    const a1KeyCombine = MPC.keyCombine(A.pShare, [B.nShares[1], C.nShares[1]]);
+    const b1KeyCombine = MPC.keyCombine(B.pShare, [A.nShares[2], C.nShares[2]]);
+    const c1KeyCombine = MPC.keyCombine(C.pShare, [A.nShares[3], B.nShares[3]]);
+
+    console.log(`commonPublicKey-a1--- ${a1KeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-b1--- ${b1KeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-c1--- ${c1KeyCombine.xShare.y}`)
 }
 
 async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined, signValue: string) {
