@@ -1,5 +1,6 @@
 import { Ecdsa, ECDSA, hexToBigInt, TssUtils } from '@bitgo/sdk-core';
 import { EcdsaPaillierProof, EcdsaRangeProof, EcdsaTypes } from '@bitgo/sdk-lib-mpc';
+import * as ethUtil from 'ethereumjs-util';
 
 const MPC = new Ecdsa();
 
@@ -20,6 +21,13 @@ async function bitgoCreate() {
     console.log(`commonPublicKey-a--- ${aKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-b--- ${bKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-c--- ${cKeyCombine.xShare.y}`)
+
+    const publicKey = aKeyCombine.xShare.y
+
+    const publicKeyBuffer = Buffer.from(publicKey, 'hex');
+    const ethereumAddress = ethUtil.pubToAddress(publicKeyBuffer, true).toString('hex');
+
+    console.log(`Ethereum Address: 0x${ethereumAddress}`);
 
     // await bitgoResharing(A, B)
 
@@ -200,6 +208,14 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     const signature = MPC.constructSignature([signA, signB]);
 
     console.log(`signature--- ${JSON.stringify(signature)}`)
+
+    const mumbaiChainId = 80001;
+    const v = 35 + signature.recid + (mumbaiChainId * 2);
+
+    // 组合 r, s, 和 v
+    const combinedSignature = `0x${signature.r}${signature.s}${v.toString(16)}`;
+
+    console.log(`Ethereum Signature: ${combinedSignature}`);
 
     console.log(`time11--- ${Date.parse(new Date().toString()) / 1000}`)
 

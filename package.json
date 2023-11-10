@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@bitgo/sdk-core": "^8.26.0"
+    "@bitgo/sdk-core": "^8.26.0",
+    "ethereumjs-util": "^7.1.5"
   }
 }
