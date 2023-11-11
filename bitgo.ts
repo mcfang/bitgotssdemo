@@ -6,9 +6,16 @@ const MPC = new Ecdsa();
 
 async function bitgoCreate() {
 
-    const A = await MPC.keyShare(1, 2, 3);
-    const B = await MPC.keyShare(2, 2, 3);
-    const C = await MPC.keyShare(3, 2, 3);
+    const seed = Buffer.from(
+        '2b73353a2bdecf9bb4a5305d6cfb231d7f5528c5e45de815d17fd0a091fa7f84778e3f9890ad2a5d03af50b9a69574640afe7be3039d35a7e5824b2d1b59b0c3',
+        'hex',
+    );
+    const address = '0xc11DDc828Ad53195B2E1ec630Ab2D67b56FFC44f'
+    const path = "m/44'/60'/0'/0/0"
+
+    const A = await MPC.keyShare(1, 2, 3, seed);
+    const B = await MPC.keyShare(2, 2, 3, seed);
+    const C = await MPC.keyShare(3, 2, 3, seed);
 
     console.log(JSON.stringify(A, undefined, 1));
     console.log(JSON.stringify(B, undefined, 2));
@@ -22,38 +29,40 @@ async function bitgoCreate() {
     console.log(`commonPublicKey-b--- ${bKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-c--- ${cKeyCombine.xShare.y}`)
 
-    const publicKey = aKeyCombine.xShare.y
+    const apublicKey = aKeyCombine.xShare.y
+    const aPublicKeyBuffer = Buffer.from(apublicKey, 'hex');
+    const aEthereumAddress = ethUtil.pubToAddress(aPublicKeyBuffer, true).toString('hex');
+    console.log(`a Ethereum Address: 0x${aEthereumAddress}`);
 
-    const publicKeyBuffer = Buffer.from(publicKey, 'hex');
-    const ethereumAddress = ethUtil.pubToAddress(publicKeyBuffer, true).toString('hex');
+    const aKeyDerive = MPC.keyDerive(A.pShare, [B.nShares[1], C.nShares[1]], path)
+    const bKeyDerive = MPC.keyDerive(B.pShare, [A.nShares[2], C.nShares[2]], path)
+    const cKeyDerive = MPC.keyDerive(C.pShare, [A.nShares[3], B.nShares[3]], path)
 
-    console.log(`Ethereum Address: 0x${ethereumAddress}`);
+    const aaKeyCombine: ECDSA.KeyCombined = {
+        xShare: aKeyDerive.xShare,
+        yShares: aKeyCombine.yShares,
+    };
 
-    // await bitgoResharing(A, B)
+    const bbKeyCombine: ECDSA.KeyCombined = {
+        xShare: bKeyDerive.xShare,
+        yShares: bKeyCombine.yShares,
+    };
 
-    await bitgoSign(aKeyCombine, bKeyCombine, 'aa')
+    const ccKeyCombine: ECDSA.KeyCombined = {
+        xShare: cKeyDerive.xShare,
+        yShares: cKeyCombine.yShares,
+    };
 
+    console.log(`commonPublicKey-aa--- ${aaKeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-bb--- ${bbKeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-cc--- ${ccKeyCombine.xShare.y}`)
 
-    // const dKeyCombine = MPC.keyCombine(C.pShare, [A.nShares[3], B.nShares[3]]);
-    // console.log(`commonPublicKey-d--- ${dKeyCombine.xShare.y}`)
-}
+    const aapublicKey = aaKeyCombine.xShare.y
+    const aaPublicKeyBuffer = Buffer.from(aapublicKey, 'hex');
+    const aaEthereumAddress = ethUtil.pubToAddress(aaPublicKeyBuffer, true).toString('hex');
+    console.log(`aa Ethereum Address: 0x${aaEthereumAddress}`);
 
-async function bitgoResharing(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined) {
-    const A = await MPC.keyShare(1, 2, 3);
-    const B = await MPC.keyShare(2, 2, 3);
-    const C = await MPC.keyShare(3, 2, 3);
-
-    console.log(JSON.stringify(A, undefined, 1));
-    console.log(JSON.stringify(B, undefined, 2));
-    console.log(JSON.stringify(C, undefined, 3));
-
-    const a1KeyCombine = MPC.keyCombine(A.pShare, [B.nShares[1], C.nShares[1]]);
-    const b1KeyCombine = MPC.keyCombine(B.pShare, [A.nShares[2], C.nShares[2]]);
-    const c1KeyCombine = MPC.keyCombine(C.pShare, [A.nShares[3], B.nShares[3]]);
-
-    console.log(`commonPublicKey-a1--- ${a1KeyCombine.xShare.y}`)
-    console.log(`commonPublicKey-b1--- ${b1KeyCombine.xShare.y}`)
-    console.log(`commonPublicKey-c1--- ${c1KeyCombine.xShare.y}`)
+    // await bitgoSign(aKeyCombine, bKeyCombine, 'aa')
 }
 
 async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined, signValue: string) {
