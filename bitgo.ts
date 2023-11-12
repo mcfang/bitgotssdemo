@@ -1,6 +1,12 @@
-import { Ecdsa, ECDSA, hexToBigInt, TssUtils } from '@bitgo/sdk-core';
+import { BitGo } from 'bitgo';
+import { Ecdsa, ECDSA, ECDSAMethodTypes, hexToBigInt, TssUtils } from '@bitgo/sdk-core';
 import { EcdsaPaillierProof, EcdsaRangeProof, EcdsaTypes } from '@bitgo/sdk-lib-mpc';
+import { Eth } from '@bitgo/sdk-coin-eth';
 import * as ethUtil from 'ethereumjs-util';
+import { ethers, utils } from 'ethers';
+import createKeccakHash from 'keccak';
+import { Hash } from 'crypto';
+import { splitSignature } from '@ethersproject/bytes';
 
 const MPC = new Ecdsa();
 
@@ -53,6 +59,21 @@ async function bitgoCreate() {
         yShares: cKeyCombine.yShares,
     };
 
+    const bitgo = new BitGo({
+        env: 'test',
+    });
+    const options = {
+        label: 'ETH TSS Wallet',
+        m: 2,
+        n: 3,
+        // Prerequisite is to create keys before hand
+        keys: ['62fe654e9095600007e92114e6d89e5a', '62fe654e6b4cf70007b343aec0641a31', '62fe654e9095600007e920f7a22590b9'],
+        multisigType: 'tss',
+        walletVersion: 3, // Required for ECDSA assets, such as ETH and MATIC
+    };
+    const newWallet = await bitgo.coin('tsol').wallets().add(options);
+    console.log(JSON.stringify(newWallet, undefined, 2));
+
     console.log(`commonPublicKey-aa--- ${aaKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-bb--- ${bbKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-cc--- ${ccKeyCombine.xShare.y}`)
@@ -62,10 +83,60 @@ async function bitgoCreate() {
     const aaEthereumAddress = ethUtil.pubToAddress(aaPublicKeyBuffer, true).toString('hex');
     console.log(`aa Ethereum Address: 0x${aaEthereumAddress}`);
 
-    // await bitgoSign(aKeyCombine, bKeyCombine, 'aa')
+
+    const provider = new ethers.providers.JsonRpcProvider('https://gateway.tenderly.co/public/polygon-mumbai');
+    const nonce = 0;
+    const maxFeePerGas = ethers.utils.parseUnits('10', 'gwei');
+    const gasPriority = ethers.utils.parseUnits('5', 'gwei');
+    const toAddress = '0xC3bB09532A3a92376280bCD3bD153f7FA712E6AC'
+    const txParams = {
+        type: 2,
+        nonce: nonce,
+        to: toAddress,
+        maxPriorityFeePerGas: gasPriority,
+        maxFeePerGas: maxFeePerGas.add(gasPriority),
+        value: 0,
+        gasLimit: '21000',
+        chainId: 80001,
+    };
+
+    const txParams1 = {
+        to: toAddress,
+        nonce: nonce,
+        value: 0,
+        gasLimit: 21000,
+        eip1559: {
+            maxPriorityFeePerGas: 5,
+            maxFeePerGas: 10
+        },
+        data: Buffer.from('0x'),
+        type: 2
+    };
+
+    let tx = Eth.buildTransaction(txParams1);
+    const signableHex = tx.getMessageToSign(false).toString('hex');
+
+    console.log(`signableHex--- ${signableHex}`)
+
+    // const serialize = utils.serializeTransaction(txParams);
+    // const unsignedHash = utils.keccak256(serialize);
+
+    // console.log(`unsignedHash--- ${unsignedHash}`)
+
+    const signature = await bitgoSign(aKeyCombine, bKeyCombine, signableHex, txParams)
+    // const ethCommmon = Eth.getEthCommon(params.eip1559, params.replayProtectionOptions);
+    // tx = this.getSignedTxFromSignature(ethCommmon, tx, signature);
+    try {
+        const status = await provider.sendTransaction(signature);
+        console.log(`status--- ${status}`)
+    } catch (e) {
+        console.log(`broadcast error--- ${JSON.stringify(e)}`)
+    }
 }
 
-async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined, signValue: string) {
+async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined, signValue: any, unsignedTransaction: any) {
+
+    console.log(`signValue--- ${signValue}`)
 
     console.log(`time--- ${Date.parse(new Date().toString()) / 1000}`)
     const [ntilde1, ntilde2] = await Promise.all([
@@ -183,7 +254,7 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
         }),
     ];
 
-    const MESSAGE = Buffer.from(signValue);
+    const MESSAGE = Buffer.from(signValue, 'hex');
 
     console.log(`time9--- ${Date.parse(new Date().toString()) / 1000}`)
 
@@ -193,20 +264,8 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     // and delta share received from the other signer
 
     const [signA, signB] = [
-        MPC.sign(
-            MESSAGE,
-            signCombineOne.oShare,
-            signCombineTwo.dShare,
-            undefined,
-            true,
-        ),
-        MPC.sign(
-            MESSAGE,
-            signCombineTwo.oShare,
-            signCombineOne.dShare,
-            undefined,
-            true,
-        ),
+        MPC.sign(MESSAGE, signCombineOne.oShare, signCombineTwo.dShare, createKeccakHash('keccak256') as Hash),
+        MPC.sign(MESSAGE, signCombineTwo.oShare, signCombineOne.dShare, createKeccakHash('keccak256') as Hash),
     ];
 
     console.log(`time10--- ${Date.parse(new Date().toString()) / 1000}`)
@@ -218,13 +277,37 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
 
     console.log(`signature--- ${JSON.stringify(signature)}`)
 
-    const mumbaiChainId = 80001;
-    const v = 35 + signature.recid + (mumbaiChainId * 2);
+    // const combinedSignature = Buffer.from(signature.r + signature.s, 'hex')
+    const chainId = 80001
+    const v = chainId * 2 + 35 + signature.recid;
+    // const vHex = v.toString(16).padStart(2, '0'); // 确保v是两个字符长度的十六进制字符串
+    const rHex = signature.r;
+    const sHex = signature.s;
+    const vHex = v.toString(16);
 
-    // 组合 r, s, 和 v
-    const combinedSignature = `0x${signature.r}${signature.s}${v.toString(16)}`;
+    const combinedSignature = `${rHex}${sHex}${vHex}`;
 
-    console.log(`Ethereum Signature: ${combinedSignature}`);
+    console.log(`Ethereum Signature3: ${combinedSignature}`);
+
+    const rawTransaction = ethers.utils.serializeTransaction(unsignedTransaction, combinedSignature);
+
+    // console.log(`length--- ${combinedSignature.length}`)
+
+    // const sig = 'b3d5b45dec592d6ca60455f2926e06e5ff1c81cc4115d44d4b4f9953e6260aee55bc80e341977ab77713c80b31d960be01e09bb19014db49484db45859c77fda00';
+    // console.log(`sig length--- ${sig.length}`)
+
+    // const r = combinedSignature.substring(0, 64);
+    // const s = combinedSignature.substring(64, 128);
+    // const v = combinedSignature.substring(128);
+    // const signature1 = {
+    //     r: '0x' + r,
+    //     s: '0x' + s,
+    //     recoveryParam: parseInt(v, 16),
+    // };
+    // const signature2 = splitSignature(signature1);
+    // const signedTransaction = utils.serializeTransaction(unsignedTransaction, signature2);
+
+    // console.log(`signature--- ${JSON.stringify(signedTransaction)}`)
 
     console.log(`time11--- ${Date.parse(new Date().toString()) / 1000}`)
 
@@ -233,6 +316,8 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
 
     const isValid = MPC.verify(MESSAGE, signature, undefined, true);
     console.log(`isValid--- ${isValid}`)
+
+    return rawTransaction
 }
 
 bitgoCreate()
