@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@bitgo/abstract-eth": "^1.6.0",
-    "@bitgo/sdk-coin-eth": "^4.10.0",
+    "@bitgo/sdk-coin-polygon": "^1.10.0",
     "@bitgo/sdk-core": "^8.26.0",
     "@ethersproject/keccak256": "^5.7.0",
     "bitgo": "^19.20.0",

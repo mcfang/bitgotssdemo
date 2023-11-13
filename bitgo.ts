@@ -1,7 +1,8 @@
 import { BitGo } from 'bitgo';
-import { Ecdsa, ECDSA, ECDSAMethodTypes, hexToBigInt, TssUtils } from '@bitgo/sdk-core';
+import { Ecdsa, ECDSA, ECDSAMethodTypes, hexToBigInt, SignatureShareRecord, SignatureShareType, TssUtils } from '@bitgo/sdk-core';
 import { EcdsaPaillierProof, EcdsaRangeProof, EcdsaTypes } from '@bitgo/sdk-lib-mpc';
 import { Eth } from '@bitgo/sdk-coin-eth';
+import { Polygon, PolygonToken } from '@bitgo/sdk-coin-polygon';
 import * as ethUtil from 'ethereumjs-util';
 import { ethers, utils } from 'ethers';
 import createKeccakHash from 'keccak';
@@ -12,16 +13,16 @@ const MPC = new Ecdsa();
 
 async function bitgoCreate() {
 
-    const seed = Buffer.from(
-        '2b73353a2bdecf9bb4a5305d6cfb231d7f5528c5e45de815d17fd0a091fa7f84778e3f9890ad2a5d03af50b9a69574640afe7be3039d35a7e5824b2d1b59b0c3',
-        'hex',
-    );
-    const address = '0xc11DDc828Ad53195B2E1ec630Ab2D67b56FFC44f'
-    const path = "m/44'/60'/0'/0/0"
+    // const seed = Buffer.from(
+    //     '2b73353a2bdecf9bb4a5305d6cfb231d7f5528c5e45de815d17fd0a091fa7f84778e3f9890ad2a5d03af50b9a69574640afe7be3039d35a7e5824b2d1b59b0c3',
+    //     'hex',
+    // );
+    // const address = '0xc11DDc828Ad53195B2E1ec630Ab2D67b56FFC44f'
+    // const path = "m/44'/60'/0'/0/0"
 
-    const A = await MPC.keyShare(1, 2, 3, seed);
-    const B = await MPC.keyShare(2, 2, 3, seed);
-    const C = await MPC.keyShare(3, 2, 3, seed);
+    const A = await MPC.keyShare(1, 2, 3);
+    const B = await MPC.keyShare(2, 2, 3);
+    const C = await MPC.keyShare(3, 2, 3);
 
     console.log(JSON.stringify(A, undefined, 1));
     console.log(JSON.stringify(B, undefined, 2));
@@ -35,57 +36,58 @@ async function bitgoCreate() {
     console.log(`commonPublicKey-b--- ${bKeyCombine.xShare.y}`)
     console.log(`commonPublicKey-c--- ${cKeyCombine.xShare.y}`)
 
-    const apublicKey = aKeyCombine.xShare.y
-    const aPublicKeyBuffer = Buffer.from(apublicKey, 'hex');
-    const aEthereumAddress = ethUtil.pubToAddress(aPublicKeyBuffer, true).toString('hex');
-    console.log(`a Ethereum Address: 0x${aEthereumAddress}`);
+    // const apublicKey = aKeyCombine.xShare.y
+    // const aPublicKeyBuffer = Buffer.from(apublicKey, 'hex');
+    // const aEthereumAddress = ethUtil.pubToAddress(aPublicKeyBuffer, true).toString('hex');
+    // console.log(`a Ethereum Address: 0x${aEthereumAddress}`);
 
-    const aKeyDerive = MPC.keyDerive(A.pShare, [B.nShares[1], C.nShares[1]], path)
-    const bKeyDerive = MPC.keyDerive(B.pShare, [A.nShares[2], C.nShares[2]], path)
-    const cKeyDerive = MPC.keyDerive(C.pShare, [A.nShares[3], B.nShares[3]], path)
+    // const aKeyDerive = MPC.keyDerive(A.pShare, [B.nShares[1], C.nShares[1]], path)
+    // const bKeyDerive = MPC.keyDerive(B.pShare, [A.nShares[2], C.nShares[2]], path)
+    // const cKeyDerive = MPC.keyDerive(C.pShare, [A.nShares[3], B.nShares[3]], path)
 
-    const aaKeyCombine: ECDSA.KeyCombined = {
-        xShare: aKeyDerive.xShare,
-        yShares: aKeyCombine.yShares,
-    };
+    // const aaKeyCombine: ECDSA.KeyCombined = {
+    //     xShare: aKeyDerive.xShare,
+    //     yShares: aKeyCombine.yShares,
+    // };
 
-    const bbKeyCombine: ECDSA.KeyCombined = {
-        xShare: bKeyDerive.xShare,
-        yShares: bKeyCombine.yShares,
-    };
+    // const bbKeyCombine: ECDSA.KeyCombined = {
+    //     xShare: bKeyDerive.xShare,
+    //     yShares: bKeyCombine.yShares,
+    // };
 
-    const ccKeyCombine: ECDSA.KeyCombined = {
-        xShare: cKeyDerive.xShare,
-        yShares: cKeyCombine.yShares,
-    };
+    // const ccKeyCombine: ECDSA.KeyCombined = {
+    //     xShare: cKeyDerive.xShare,
+    //     yShares: cKeyCombine.yShares,
+    // };
 
-    const bitgo = new BitGo({
-        env: 'test',
-    });
-    const options = {
-        label: 'ETH TSS Wallet',
-        m: 2,
-        n: 3,
-        // Prerequisite is to create keys before hand
-        keys: ['62fe654e9095600007e92114e6d89e5a', '62fe654e6b4cf70007b343aec0641a31', '62fe654e9095600007e920f7a22590b9'],
-        multisigType: 'tss',
-        walletVersion: 3, // Required for ECDSA assets, such as ETH and MATIC
-    };
-    const newWallet = await bitgo.coin('tsol').wallets().add(options);
-    console.log(JSON.stringify(newWallet, undefined, 2));
+    // const bitgo = new BitGo({
+    //     env: 'test',
+    // });
+    // const options = {
+    //     label: 'ETH TSS Wallet',
+    //     m: 2,
+    //     n: 3,
+    //     // Prerequisite is to create keys before hand
+    //     keys: ['62fe654e9095600007e92114e6d89e5a', '62fe654e6b4cf70007b343aec0641a31', '62fe654e9095600007e920f7a22590b9'],
+    //     multisigType: 'tss',
+    //     walletVersion: 3, // Required for ECDSA assets, such as ETH and MATIC
+    // };
+    // //@ts-ignore
+    // const newWallet = await bitgo.coin('tpolygon').wallets().add(options);
+    // console.log(JSON.stringify(newWallet, undefined, 2));
 
-    console.log(`commonPublicKey-aa--- ${aaKeyCombine.xShare.y}`)
-    console.log(`commonPublicKey-bb--- ${bbKeyCombine.xShare.y}`)
-    console.log(`commonPublicKey-cc--- ${ccKeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-aa--- ${aKeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-bb--- ${bKeyCombine.xShare.y}`)
+    console.log(`commonPublicKey-cc--- ${cKeyCombine.xShare.y}`)
 
-    const aapublicKey = aaKeyCombine.xShare.y
+    const aapublicKey = aKeyCombine.xShare.y
     const aaPublicKeyBuffer = Buffer.from(aapublicKey, 'hex');
     const aaEthereumAddress = ethUtil.pubToAddress(aaPublicKeyBuffer, true).toString('hex');
     console.log(`aa Ethereum Address: 0x${aaEthereumAddress}`);
 
 
     const provider = new ethers.providers.JsonRpcProvider('https://gateway.tenderly.co/public/polygon-mumbai');
-    const nonce = 0;
+    const nonce = 1;
     const maxFeePerGas = ethers.utils.parseUnits('10', 'gwei');
     const gasPriority = ethers.utils.parseUnits('5', 'gwei');
     const toAddress = '0xC3bB09532A3a92376280bCD3bD153f7FA712E6AC'
@@ -97,7 +99,7 @@ async function bitgoCreate() {
         maxFeePerGas: maxFeePerGas.add(gasPriority),
         value: 0,
         gasLimit: '21000',
-        chainId: 80001,
+        data: "0x"
     };
 
     const txParams1 = {
@@ -113,17 +115,17 @@ async function bitgoCreate() {
         type: 2
     };
 
-    let tx = Eth.buildTransaction(txParams1);
-    const signableHex = tx.getMessageToSign(false).toString('hex');
+    let tx = Polygon.buildTransaction(txParams1);
+    const signableHex = tx.getMessageToSign(true).toString('hex');
 
     console.log(`signableHex--- ${signableHex}`)
 
     // const serialize = utils.serializeTransaction(txParams);
-    // const unsignedHash = utils.keccak256(serialize);
+    // const signableHex = utils.keccak256(serialize);
 
-    // console.log(`unsignedHash--- ${unsignedHash}`)
+    console.log(`unsignedHash--- ${signableHex}`)
 
-    const signature = await bitgoSign(aKeyCombine, bKeyCombine, signableHex, txParams)
+    const signature = await bitgoSign(aKeyCombine, bKeyCombine, signableHex, txParams1)
     // const ethCommmon = Eth.getEthCommon(params.eip1559, params.replayProtectionOptions);
     // tx = this.getSignedTxFromSignature(ethCommmon, tx, signature);
     try {
@@ -274,22 +276,39 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     // Construct the final signature
 
     const signature = MPC.constructSignature([signA, signB]);
+    const finalSigantureBitgoResponse =
+        '0x' + signature.r + signature.s + signature.y;
+    const signatureShareThreeFromBitgo: SignatureShareRecord = {
+        from: SignatureShareType.BITGO,
+        to: SignatureShareType.USER,
+        share: finalSigantureBitgoResponse,
+    };
+
+    // const ethCommmon = PolygonToken.getEthLikeCommon(params.eip1559, params.replayProtectionOptions);
+    // tx = Eth.getSignedTxFromSignature(ethCommmon, tx, signature);
 
     console.log(`signature--- ${JSON.stringify(signature)}`)
 
-    // const combinedSignature = Buffer.from(signature.r + signature.s, 'hex')
-    const chainId = 80001
+    const isValid = MPC.verify(MESSAGE, signature, createKeccakHash('keccak256') as Hash, true);
+    console.log(`isValid--- ${isValid}`)
+
+
+    const chainId = 80001;
     const v = chainId * 2 + 35 + signature.recid;
-    // const vHex = v.toString(16).padStart(2, '0'); // 确保v是两个字符长度的十六进制字符串
-    const rHex = signature.r;
-    const sHex = signature.s;
-    const vHex = v.toString(16);
+    const signature11 = {
+        r: signature.r,
+        s: signature.s,
+        v: v, // recid 通常对应于 v 值，但这可能需要根据实际情况调整
+    };
+    // const combinedSignature = Buffer.from(signature.r + signature.s, 'hex')
+    // const vHex = v.toString(16).padStart(2, '0');
+    // const combinedSignature = `0x${signature.r.padStart(64, '0')}${signature.s.padStart(64, '0')}${vHex}`;
 
-    const combinedSignature = `${rHex}${sHex}${vHex}`;
 
-    console.log(`Ethereum Signature3: ${combinedSignature}`);
 
-    const rawTransaction = ethers.utils.serializeTransaction(unsignedTransaction, combinedSignature);
+    // console.log(`Ethereum Signature3: ${combinedSignature}`);
+
+    // const rawTransaction = ethers.utils.serializeTransaction(unsignedTransaction, signature11);
 
     // console.log(`length--- ${combinedSignature.length}`)
 
@@ -314,10 +333,10 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     // Step Twelve
     // Verify signature
 
-    const isValid = MPC.verify(MESSAGE, signature, undefined, true);
-    console.log(`isValid--- ${isValid}`)
+    // const isValid = MPC.verify(MESSAGE, signature, undefined, true);
+    // console.log(`isValid--- ${isValid}`)
 
-    return rawTransaction
+    return finalSigantureBitgoResponse
 }
 
 bitgoCreate()
