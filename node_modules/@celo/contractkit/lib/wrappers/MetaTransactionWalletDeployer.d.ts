@@ -1,0 +1,6 @@
+import { MetaTransactionWalletDeployer } from '../generated/MetaTransactionWalletDeployer';
+import { BaseWrapper } from './BaseWrapper';
+export declare class MetaTransactionWalletDeployerWrapper extends BaseWrapper<MetaTransactionWalletDeployer> {
+    deploy: (owner: string, implementation: string, initCallData: string | number[]) => import("@celo/connect").CeloTransactionObject<void>;
+}
+export declare type MetaTransactionWalletDeployerWrapperType = MetaTransactionWalletDeployerWrapper;
