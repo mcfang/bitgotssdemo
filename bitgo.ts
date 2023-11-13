@@ -1,13 +1,14 @@
 import { BitGo } from 'bitgo';
 import { Ecdsa, ECDSA, ECDSAMethodTypes, hexToBigInt, SignatureShareRecord, SignatureShareType, TssUtils } from '@bitgo/sdk-core';
 import { EcdsaPaillierProof, EcdsaRangeProof, EcdsaTypes } from '@bitgo/sdk-lib-mpc';
-import { Eth } from '@bitgo/sdk-coin-eth';
+import { Eth, optionalDeps } from '@bitgo/sdk-coin-eth';
 import { Polygon, PolygonToken } from '@bitgo/sdk-coin-polygon';
 import * as ethUtil from 'ethereumjs-util';
 import { ethers, utils } from 'ethers';
-import createKeccakHash from 'keccak';
+import Keccak from 'keccak';
 import { Hash } from 'crypto';
 import { splitSignature } from '@ethersproject/bytes';
+// import { optionalDeps } from '@bitgo/abstract-eth';
 
 const MPC = new Ecdsa();
 
@@ -62,6 +63,7 @@ async function bitgoCreate() {
 
     // const bitgo = new BitGo({
     //     env: 'test',
+    //     accessToken: 'v2xadad7c321ba462ae880d567d9e66d00209348717c2f6070ac5788dbbaeaf57c8'
     // });
     // const options = {
     //     label: 'ETH TSS Wallet',
@@ -98,42 +100,40 @@ async function bitgoCreate() {
         maxPriorityFeePerGas: gasPriority,
         maxFeePerGas: maxFeePerGas.add(gasPriority),
         value: 0,
-        gasLimit: '21000',
-        data: "0x"
+        gasLimit: '21000'
     };
 
     const txParams1 = {
         to: toAddress,
         nonce: nonce,
         value: 0,
-        gasLimit: 21000,
-        eip1559: {
-            maxPriorityFeePerGas: 5,
-            maxFeePerGas: 10
-        },
-        data: Buffer.from('0x'),
-        type: 2
+        gasLimit: new optionalDeps.ethUtil.BN(100000),
+        gasPrice: new optionalDeps.ethUtil.BN(10000000000),
+        // eip1559: {
+        //     maxPriorityFeePerGas: 5,
+        //     maxFeePerGas: 10
+        // },
+        // data: Buffer.from('0x'),
+        // type: 1
     };
 
     let tx = Polygon.buildTransaction(txParams1);
-    const signableHex = tx.getMessageToSign(true).toString('hex');
-
-    console.log(`signableHex--- ${signableHex}`)
+    const signableHex = tx.getMessageToSign(false).toString('hex');
 
     // const serialize = utils.serializeTransaction(txParams);
     // const signableHex = utils.keccak256(serialize);
 
     console.log(`unsignedHash--- ${signableHex}`)
 
-    const signature = await bitgoSign(aKeyCombine, bKeyCombine, signableHex, txParams1)
-    // const ethCommmon = Eth.getEthCommon(params.eip1559, params.replayProtectionOptions);
-    // tx = this.getSignedTxFromSignature(ethCommmon, tx, signature);
-    try {
-        const status = await provider.sendTransaction(signature);
-        console.log(`status--- ${status}`)
-    } catch (e) {
-        console.log(`broadcast error--- ${JSON.stringify(e)}`)
-    }
+    // const signature = await bitgoSign(aKeyCombine, bKeyCombine, signableHex, txParams)
+    // // const ethCommmon = Eth.getEthCommon(params.eip1559, params.replayProtectionOptions);
+    // // tx = this.getSignedTxFromSignature(ethCommmon, tx, signature);
+    // try {
+    //     const status = await provider.sendTransaction(signature);
+    //     console.log(`status--- ${status}`)
+    // } catch (e) {
+    //     console.log(`broadcast error--- ${JSON.stringify(e)}`)
+    // }
 }
 
 async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyCombined, signValue: any, unsignedTransaction: any) {
@@ -266,8 +266,8 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     // and delta share received from the other signer
 
     const [signA, signB] = [
-        MPC.sign(MESSAGE, signCombineOne.oShare, signCombineTwo.dShare, createKeccakHash('keccak256') as Hash),
-        MPC.sign(MESSAGE, signCombineTwo.oShare, signCombineOne.dShare, createKeccakHash('keccak256') as Hash),
+        MPC.sign(MESSAGE, signCombineOne.oShare, signCombineTwo.dShare),
+        MPC.sign(MESSAGE, signCombineTwo.oShare, signCombineOne.dShare),
     ];
 
     console.log(`time10--- ${Date.parse(new Date().toString()) / 1000}`)
@@ -276,8 +276,7 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
     // Construct the final signature
 
     const signature = MPC.constructSignature([signA, signB]);
-    const finalSigantureBitgoResponse =
-        '0x' + signature.r + signature.s + signature.y;
+    const finalSigantureBitgoResponse = signature.r + signature.s + signature.y;
     const signatureShareThreeFromBitgo: SignatureShareRecord = {
         from: SignatureShareType.BITGO,
         to: SignatureShareType.USER,
@@ -289,7 +288,7 @@ async function bitgoSign(aKeyCombine: ECDSA.KeyCombined, bKeyCombine: ECDSA.KeyC
 
     console.log(`signature--- ${JSON.stringify(signature)}`)
 
-    const isValid = MPC.verify(MESSAGE, signature, createKeccakHash('keccak256') as Hash, true);
+    const isValid = MPC.verify(MESSAGE, signature, undefined, true);
     console.log(`isValid--- ${isValid}`)
 
 
